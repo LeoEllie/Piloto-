@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estudio sobre valoración musical - CIDE</title>
+<style>
+  :root{--bg:#f6f5f1;--card:#ffffff;--ink:#1d1d1b;--muted:#5f5e5a;--line:#d9d6cc;--accent:#1f5f8b;--warn:#b3261e;--rev:#fff4d6;--revline:#e0b84a;--ok:#1d6b3a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  #rev{position:sticky;top:0;z-index:10;background:var(--rev);border-bottom:2px solid var(--revline);padding:8px 14px;font-size:13px;display:none}
+  body.revision #rev{display:block}
+  body:not(.revision) .solo-rev{display:none}
+  #rev strong{letter-spacing:.02em}
+  #rev .row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin-top:4px}
+  #rev label{display:flex;gap:6px;align-items:center}
+  #rev select,#rev input[type=number]{font:inherit;font-size:13px;padding:2px 4px}
+  #rev button{font:inherit;font-size:13px;padding:3px 10px;cursor:pointer}
+  #srv{font-weight:600}
+  main{max-width:720px;margin:20px auto 40px;padding:0 14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:22px 24px}
+  h1{font-size:1.25rem;margin:0 0 4px}
+  .step{color:var(--muted);font-size:13px;margin-bottom:14px}
+  .pend{color:var(--warn);font-weight:700}
+  .muted{color:var(--muted);font-size:14px}
+  label.opt{display:block;margin:8px 0;cursor:pointer}
+  .field{margin:14px 0}
+  .field>label{display:block;font-weight:600;margin-bottom:4px}
+  input[type=number],input[type=text],input[type=email],select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;min-width:160px}
+  input[type=text],input[type=email]{width:100%;max-width:420px}
+  button.primary{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 20px;font:inherit;font-weight:600;cursor:pointer}
+  button.primary:disabled{background:#a9b8c4;cursor:not-allowed}
+  button.sec{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 16px;font:inherit;cursor:pointer}
+  button.sec:disabled{color:#a9a9a9;cursor:not-allowed}
+  a.primary{display:inline-block;background:var(--accent);color:#fff;border-radius:8px;padding:8px 16px;text-decoration:none;font-weight:600}
+  .actions{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .msg{margin-top:12px;padding:10px 12px;border-radius:8px;background:#f1efe8;font-size:15px}
+  .msg.bad{background:#fbe9e7;color:#7a1b13}
+  .msg.good{background:#e6f3ea;color:#14502b}
+  .ficha{border:1px solid var(--line);border-left:5px solid var(--accent);background:#fbfbf9;padding:14px 16px;border-radius:6px;margin:10px 0}
+  .ficha p{margin:6px 0}
+  .bar{height:12px;background:#e8e6de;border-radius:6px;overflow:hidden;margin:12px 0}
+  .bar>i{display:block;height:100%;width:0;background:var(--accent)}
+  .big{font-size:2rem;font-variant-numeric:tabular-nums;text-align:center;margin:6px 0}
+  .scale{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+  .scale label{display:flex;flex-direction:column;align-items:center;font-size:14px;cursor:pointer}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  td,th{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{background:#f1efe8}
+  pre{background:#f1efe8;padding:10px;border-radius:6px;overflow:auto;font-size:12px}
+  details{margin-top:18px;font-size:13px}
+  footer{max-width:720px;margin:0 auto 30px;padding:0 14px;color:var(--muted);font-size:12px}
+  .tag{display:inline-block;background:#e9eef2;color:#244a63;border-radius:4px;padding:1px 7px;font-size:12px;font-weight:600}
+</style>
+</head>
+<body>
+
+<!-- Panel de revisión: solo aparece si se abre la página con ?revision=1 al final de la dirección -->
+<div id="rev">
+  <strong>MODO REVISIÓN.</strong> Las sesiones se guardan marcadas con modo_revision=1 y usan bloques de prueba aparte.
+  Servidor: <span id="srv"></span>
+  <div class="row">
+    <label>Condición
+      <select id="cond">
+        <option value="srv" selected>Asignación del servidor</option>
+        <option value="T0">Forzar control (T=0)</option>
+        <option value="T1">Forzar tratamiento (T=1)</option>
+      </select>
+    </label>
+    <label>Velocidad
+      <select id="speed">
+        <option value="1">x1 (real)</option>
+        <option value="4" selected>x4</option>
+        <option value="10">x10</option>
+      </select>
+    </label>
+    <label>Forzar precio p (0-40, vacío = azar)
+      <input type="number" id="forcep" min="0" max="40" step="1" style="width:70px">
+    </label>
+    <button id="restart" type="button">Nueva sesión</button>
+    <span id="prog"></span>
+  </div>
+</div>
+
+<main><div class="card" id="app"></div>
+<details id="logbox" class="solo-rev"><summary>Registro de eventos (revisión)</summary><pre id="log"></pre></details>
+</main>
+<footer class="solo-rev">Versión piloto en línea basada en el Anexo A del E3 (versión 4), Liquid Modernity. Lo marcado en rojo son pendientes del documento. Los pendientes que se ven en modo participante deben llenarse antes de lanzar.</footer>
+
+<script>
+(function(){
+"use strict";
+
+// ===================== CONFIGURACIÓN =====================
+var CONFIG = {
+  // Pega aquí la URL de la aplicación web de Apps Script (termina en /exec):
+  SCRIPT_URL: "https://script.google.com/macros/s/AKfycbzCQ_V5Nx-oCwmbfynmXfq9LkaGl4Wydj2x0gEiq85hqyFHtWFvdV4lKbtcnNnTz4GV/exec",
+  // Archivo de audio. Para cambiar la canción, reemplaza audio/solo.mp3 por el archivo final con el mismo nombre.
+  AUDIO_URL: "audio/solo.mp3",
+  AUDIO_DESCARGA: "Liquid_Modernity_-_Anagnorisis.mp3",   // nombre con el que se descarga al comprar
+  DURACION_TXT: "1:55",             // duración que se muestra en la ficha (si cambias el audio, actualízala)
+  LOCK_SEC: 30,                     // escucha obligatoria antes de poder saltar
+  FICHA_SEC: 10                     // bloqueo de lectura de la ficha
+};
+// =========================================================
+
+var REV = /[?&]revision=1\b/.test(location.search);
+if(REV) document.body.classList.add("revision");
+var TOTAL = 11, STORE = REV ? "e3_piloto_rev" : "e3_piloto";
+var S;
+
+function $(id){ return document.getElementById(id); }
+function speed(){ return REV ? (Number($("speed").value)||1) : 1; }
+function mmss(x){ x=Math.max(0,Math.floor(x||0)); var m=Math.floor(x/60), s=x%60; return m+":"+("0"+s).slice(-2); }
+function esc(t){ return String(t).replace(/[&<>"]/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+function csvCell(v){ v=String(v); return /[",\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+function store(o){ try{ if(o===null) localStorage.removeItem(STORE); else localStorage.setItem(STORE, JSON.stringify(o)); }catch(e){} }
+function stored(){ try{ return JSON.parse(localStorage.getItem(STORE)||"null"); }catch(e){ return null; } }
+function newId(){
+  var abc="ABCDEFGHJKMNPQRSTUVWXYZ23456789", a=new Uint8Array(8), out="";
+  if(window.crypto&&crypto.getRandomValues) crypto.getRandomValues(a); else for(var i=0;i<8;i++) a[i]=Math.random()*256;
+  for(var j=0;j<8;j++){ out+=abc[a[j]%abc.length]; if(j===3) out+="-"; }
+  return "E3-"+out;
+}
+
+function fresh(){
+  var prev=stored(), id=(prev&&prev.subject_id&&!prev.completo)?prev.subject_id:newId();
+  store({subject_id:id, completo:0});
+  return {screen:1, treat:null, timer:null, attempts:0, logTxt:[], audio:null, saveOk:null,
+          d:{subject_id:id, etapa:"inicio", modo_revision:REV?1:0,
+             estrato:"", block_id:"", treat:"", asignacion_fuente:"",
+             genero_principal:"", horas_musica:"", toca_instrumento:"", instrumento:"", anios_formacion:"",
+             y1_seg:"", y2_pesos:"", bdm_p:"", recibe_audio:"", pesos_restantes:"",
+             y3_jazz:"", y4_improv:"", comprension_fallida:0, intentos_comprension:0, completo:0,
+             dispositivo:/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?"movil":"escritorio"}};
+}
+function log(m){ S.logTxt.push("["+("0"+S.screen).slice(-2)+"] "+m); $("log").textContent=S.logTxt.join("\n"); }
+function clearTimer(){ if(S.timer){ clearInterval(S.timer); S.timer=null; } }
+function stopAudio(){ if(S.audio){ try{ S.audio.pause(); }catch(e){} } }
+function go(n){ clearTimer(); S.screen=n; render(); window.scrollTo(0,0); }
+function step(n, txt){ return '<div class="step">Paso '+n+' de '+TOTAL+(REV&&txt?' <span class="solo-rev">- '+txt+'</span>':'')+'</div>'; }
+
+// ---------- comunicación con Google Sheets ----------
+function api(action, data, ms){
+  if(!CONFIG.SCRIPT_URL) return Promise.reject(new Error("SCRIPT_URL vacía"));
+  var ctl = window.AbortController ? new AbortController() : null;
+  var to = setTimeout(function(){ if(ctl) ctl.abort(); }, ms||12000);
+  return fetch(CONFIG.SCRIPT_URL, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+                body:JSON.stringify({action:action, data:data}), signal:ctl?ctl.signal:undefined})
+    .then(function(r){ return r.json(); })
+    .then(function(j){ clearTimeout(to); if(!j.ok) throw new Error(j.error||"error del servidor"); return j; },
+          function(e){ clearTimeout(to); throw e; });
+}
+function withRetry(fn, tries){
+  return fn().catch(function(e){ if(tries>1){ return new Promise(function(r){ setTimeout(r,1500); }).then(function(){ return withRetry(fn,tries-1); }); } throw e; });
+}
+// Guarda la fila completa; si falla, la siguiente llamada vuelve a mandar todo.
+function save(etapa){
+  S.d.etapa=etapa;
+  var snap=JSON.parse(JSON.stringify(S.d));
+  return withRetry(function(){ return api("save", snap); }, 3)
+    .then(function(){ S.saveOk=true; log("Guardado en Sheets (etapa: "+etapa+")"); return true; },
+          function(e){ S.saveOk=false; log("No se pudo guardar (etapa: "+etapa+"): "+e.message); return false; });
+}
+
+var FICHA = {
+  T0: "Va a escuchar una pieza de Jazz Fusion de Liquid Modernity.",
+  T1: "Va a escuchar una pieza de Jazz Fusion de Liquid Modernity, esta canción se compuso parte por parte sin improvisación."
+};
+
+var screens = {
+ 0:{ html:function(){ return '<h1>Ya participaste</h1><p>Según nuestros registros ya completaste este estudio desde este dispositivo. ¡Gracias!</p>'; }, init:function(){} },
+
+ 1:{ html:function(){ return ''+
+  '<h1>Consentimiento</h1>'+step(1,"Anexo C")+
+  '<p>Esta es una investigación académica del CIDE sobre cómo se valora la música. Participarás en una sesión web de unos 10 min: escucharás una pieza, harás un ejercicio de compra con pesos virtuales y contestarás algunas preguntas. <strong>Necesitarás audífonos o bocinas.</strong></p>'+
+  '<p>Tu participación es voluntaria y puedes abandonar en cualquier momento. No recolectamos nombre ni correo; tus respuestas se guardan con un código anónimo. Los datos se usarán solo con fines de investigación y se publicarán de forma agregada.</p>'+
+  '<label class="opt"><input type="checkbox" id="acepto"> Entiendo lo anterior y acepto participar.</label>'+
+  '<div class="actions"><button class="primary" id="next" disabled>Continuar</button></div>'; },
+  init:function(){ var c=$("acepto"), b=$("next"); c.onchange=function(){ b.disabled=!c.checked; };
+    b.onclick=function(){ log("Consentimiento aceptado; subject_id="+S.d.subject_id); go(2); }; } },
+
+ 2:{ html:function(){ return ''+
+  '<h1>Cuestionario previo</h1>'+step(2,"covariables medidas antes de la asignación")+
+  '<div class="field"><label for="genero">¿Qué género musical escuchas más?</label><input type="text" id="genero" maxlength="80" placeholder="Escríbelo con tus palabras"></div>'+
+  '<div class="field"><label for="horas">Horas a la semana que escuchas música (aprox.)</label><input type="number" id="horas" min="0" max="168" step="1" inputmode="numeric"></div>'+
+  '<div class="field"><label for="inst">¿Tocas algún instrumento? ¿Cuál es el principal?</label><select id="inst"><option value="">Elige...</option><option value="ninguno">No toco ningún instrumento</option><option>guitarra</option><option>piano</option><option>bateria</option><option>bajo o contrabajo</option><option>saxofon</option><option>canto</option><option value="otro">otro</option></select></div>'+
+  '<div class="field" id="otroBox" style="display:none"><label for="otro">¿Cuál?</label><input type="text" id="otro" maxlength="60"></div>'+
+  '<div class="field"><label for="anios">Años de formación musical (0 si no tienes)</label><input type="number" id="anios" min="0" max="80" step="1" inputmode="numeric"></div>'+
+  '<div id="m"></div><div class="actions"><button class="primary" id="next">Continuar</button></div>'; },
+  init:function(){
+    $("inst").onchange=function(){ $("otroBox").style.display = $("inst").value==="otro" ? "block" : "none"; };
+    var btn=$("next");
+    btn.onclick=function(){
+      var g=$("genero").value.trim(), h=$("horas").value, i=$("inst").value, o=$("otro").value.trim(), a=$("anios").value;
+      var nh=Number(h), na=Number(a);
+      if(g===""||h===""||i===""||a===""||(i==="otro"&&o==="")){ $("m").innerHTML='<div class="msg bad">Completa todos los campos.</div>'; return; }
+      if(!(nh>=0&&nh<=168&&Math.floor(nh)===nh)||!(na>=0&&na<=80&&Math.floor(na)===na)){ $("m").innerHTML='<div class="msg bad">Revisa las horas (0 a 168) y los años (0 a 80); usa números enteros.</div>'; return; }
+      S.d.genero_principal=g; S.d.horas_musica=nh; S.d.toca_instrumento=(i==="ninguno")?0:1;
+      S.d.instrumento=(i==="otro")?"otro: "+o:i; S.d.anios_formacion=na;
+      log("Covariables registradas");
+      btn.disabled=true; $("m").innerHTML='<div class="msg">Un momento...</div>';
+      assign().then(function(){ go(3); });
+    }; } },
+
+ 3:{ html:function(){ var f=FICHA[S.treat]; return ''+
+  '<h1>Ficha de la pieza</h1>'+step(3,'bloqueo de lectura de '+CONFIG.FICHA_SEC+' s - condición <span class="tag">'+(S.treat==="T1"?"Tratamiento T=1":"Control T=0")+'</span>')+
+  '<p class="muted">Tienes $40 MXN virtuales que usarás más adelante. Lee la ficha de la pieza.</p>'+
+  '<div class="ficha"><p>'+f+'</p><p class="muted"><strong>Duración:</strong> '+CONFIG.DURACION_TXT+'</p></div>'+
+  '<p class="muted">Sube el volumen. Una vez que empiece, el audio no se puede pausar.</p>'+
+  '<div id="t" class="muted">Podrás continuar en '+CONFIG.FICHA_SEC+' s.</div>'+
+  '<div class="actions"><button class="primary" id="next" disabled>Iniciar reproducción</button></div>'; },
+  init:function(){ var b=$("next"); log("Ficha mostrada");
+    // precarga del audio mientras se lee la ficha
+    S.audio=new Audio(); S.audio.preload="auto"; S.audio.src=CONFIG.AUDIO_URL; S.audio.load();
+    var v=0; S.timer=setInterval(function(){ v+=0.1*speed();
+      if(v>=CONFIG.FICHA_SEC){ clearTimer(); $("t").textContent="Ya puedes continuar."; b.disabled=false; }
+      else $("t").textContent="Podrás continuar en "+Math.ceil(CONFIG.FICHA_SEC-v)+" s."; },100);
+    b.onclick=function(){ log("Clic en Iniciar reproducción");
+      S.audio.playbackRate=speed();
+      S.playPromise=S.audio.play(); // se llama dentro del clic para que el navegador permita el sonido
+      go(4); }; } },
+
+ 4:{ html:function(){ return ''+
+  '<h1>Reproducción</h1>'+step(4,"escucha obligatoria de "+CONFIG.LOCK_SEC+" s; luego aparece Saltar; Y1 = segundos escuchados")+
+  '<div class="big" id="clock">0:00 / '+CONFIG.DURACION_TXT+'</div><div class="bar"><i id="fill"></i></div>'+
+  '<div id="t" class="muted">Cargando audio...</div>'+
+  '<div class="actions"><button class="primary" id="play" style="display:none">Reproducir</button><button class="sec" id="skip" disabled>Saltar</button></div>'; },
+  init:function(){
+    var a=S.audio, skip=$("skip"), play=$("play"), done=false;
+    function dur(){ return (a.duration&&isFinite(a.duration))?a.duration:115; }
+    function finish(y){ if(done) return; done=true; clearTimer(); a.pause();
+      S.d.y1_seg=Math.round(y); log("Y1 = "+S.d.y1_seg+" s"); save("escucha"); go(5); }
+    function showPlay(msg){ play.style.display="inline-block"; $("t").textContent=msg; }
+    if(S.playPromise&&S.playPromise.catch){ S.playPromise.catch(function(){ showPlay("Toca Reproducir para iniciar el audio."); }); }
+    play.onclick=function(){ a.playbackRate=speed(); a.play().then(function(){ play.style.display="none"; }, function(){ showPlay("No se pudo reproducir. Revisa el volumen e inténtalo de nuevo."); }); };
+    a.onerror=function(){ log("Error al cargar el audio"); $("t").innerHTML='<span class="pend">No se pudo cargar el audio. Revisa tu conexión y recarga la página.</span>'; };
+    a.onended=function(){ finish(dur()); };
+    // Si el sistema pausa el audio (llamada, otra app), se ofrece reanudar.
+    a.onpause=function(){ if(!done && !a.ended){ log("Audio pausado por el sistema en "+Math.round(a.currentTime)+" s"); showPlay("El audio se detuvo. Toca Reproducir para continuar."); } };
+    a.onplaying=function(){ play.style.display="none"; };
+    S.timer=setInterval(function(){
+      var v=a.currentTime||0, D=dur();
+      $("clock").textContent=mmss(v)+" / "+mmss(Math.round(D)); $("fill").style.width=(100*v/D)+"%";
+      if(play.style.display!=="none") return;
+      if(v>=CONFIG.LOCK_SEC){ skip.disabled=false; $("t").textContent="Puedes saltar la pista cuando quieras."; }
+      else if(v>0){ $("t").textContent="Saltar estará disponible en "+Math.ceil(CONFIG.LOCK_SEC-v)+" s."; }
+    },200);
+    skip.onclick=function(){ finish(Math.max(CONFIG.LOCK_SEC,a.currentTime)); }; } },
+
+ 5:{ html:function(){ return ''+
+  '<h1>Instrucciones de la tarea</h1>'+step(5,"Anexo B")+
+  '<p>Tienes $40 MXN virtuales. Puedes ofrecer entre $0 y $40 de esos pesos para quedarte con el archivo de audio de la pieza que escuchaste. Los pesos no son reales y no se te cobrará nada, pero si compras el audio podrás descargarlo, así que responde como si los pesos fueran tuyos.</p>'+
+  '<p>La computadora elegirá al azar un <strong>precio p</strong>: un número entero entre 0 y 40, todos con la misma probabilidad. Si tu oferta es <strong>mayor o igual</strong> que el precio, compras el audio y pagas <strong>el precio p</strong> (no tu oferta). Si tu oferta es <strong>menor</strong> que el precio, no compras el audio y conservas tus $40.</p>'+
+  '<p>Tu mejor estrategia es ofrecer exactamente lo que de verdad vale para ti el audio: ni más ni menos.</p>'+
+  '<div class="actions"><button class="primary" id="next">Entendido, continuar</button></div>'; },
+  init:function(){ S.attempts=0; $("next").onclick=function(){ log("Instrucciones del BDM leídas"); go(6); }; } },
+
+ 6:{ html:function(){ return ''+
+  '<h1>Comprobación de comprensión</h1>'+step(6,"3 preguntas, hasta 2 intentos")+
+  '<div class="field"><label>1. Si ofreces $16 y el precio es $10, ¿qué pasa?</label>'+
+  '<label class="opt"><input type="radio" name="q1" value="a"> Compro el audio y me quedan $30.</label>'+
+  '<label class="opt"><input type="radio" name="q1" value="b"> Compro el audio y me quedan $24.</label>'+
+  '<label class="opt"><input type="radio" name="q1" value="c"> No compro el audio y me quedan $40.</label></div>'+
+  '<div class="field"><label>2. Si ofreces $16 y el precio es $24, ¿qué pasa?</label>'+
+  '<label class="opt"><input type="radio" name="q2" value="a"> Compro el audio y me quedan $16.</label>'+
+  '<label class="opt"><input type="radio" name="q2" value="b"> No compro el audio y me quedan $40.</label>'+
+  '<label class="opt"><input type="radio" name="q2" value="c"> No compro el audio y me quedan $24.</label></div>'+
+  '<div class="field"><label>3. Cuando compras el audio, ¿cuánto pagas?</label>'+
+  '<label class="opt"><input type="radio" name="q3" value="a"> Lo que yo ofrecí.</label>'+
+  '<label class="opt"><input type="radio" name="q3" value="b"> El precio que eligió la computadora.</label></div>'+
+  '<div id="m"></div><div class="actions"><button class="primary" id="check">Verificar</button><button class="primary" id="next" style="display:none">Continuar</button></div>'; },
+  init:function(){
+    var key={q1:"a",q2:"b",q3:"b"};
+    $("check").onclick=function(){
+      var ok=true, miss=false;
+      ["q1","q2","q3"].forEach(function(q){ var r=document.querySelector('input[name="'+q+'"]:checked'); if(!r){miss=true;} else if(r.value!==key[q]){ok=false;} });
+      if(miss){ $("m").innerHTML='<div class="msg bad">Responde las tres preguntas.</div>'; return; }
+      S.attempts++; S.d.intentos_comprension=S.attempts;
+      if(ok){ log("Comprobación aprobada en el intento "+S.attempts); S.d.comprension_fallida=0;
+        $("m").innerHTML='<div class="msg good">Correcto.</div>'; $("check").style.display="none"; $("next").style.display="inline-block"; }
+      else if(S.attempts<2){ log("Comprobación fallida, intento 1"); $("m").innerHTML='<div class="msg bad">Alguna respuesta no es correcta. Relee las instrucciones e inténtalo de nuevo.</div>'; }
+      else { log("Comprobación fallida en 2 intentos; comprension_fallida=1 (sigue, ITT)"); S.d.comprension_fallida=1;
+        $("m").innerHTML='<div class="msg bad">Respuestas correctas: (1) compro el audio y me quedan $30; (2) no compro el audio y me quedan $40; (3) pago el precio que eligió la computadora.</div>';
+        $("check").style.display="none"; $("next").style.display="inline-block"; } };
+    $("next").onclick=function(){ go(7); }; } },
+
+ 7:{ html:function(){ return ''+
+  '<h1>Tu oferta</h1>'+step(7,"Y2 (BDM)")+
+  '<p>¿Cuántos de tus $40 MXN ofreces por quedarte con el audio?</p>'+
+  '<div class="field"><input type="range" id="rg" min="0" max="40" step="1" value="0" style="width:100%"><div class="big">$<span id="val">0</span> MXN</div>'+
+  '<label for="num" class="muted">O escribe un número entero de pesos entre 0 y 40:</label><br><input type="number" id="num" min="0" max="40" step="1" value="0" inputmode="numeric"></div>'+
+  '<div id="m"></div><div class="actions"><button class="primary" id="next">Confirmar oferta</button></div>'; },
+  init:function(){ var rg=$("rg"), num=$("num"), val=$("val");
+    rg.oninput=function(){ num.value=rg.value; val.textContent=rg.value; };
+    num.oninput=function(){ if(num.value!==""){ rg.value=num.value; val.textContent=num.value; } };
+    $("next").onclick=function(){ var v=Number(num.value);
+      if(num.value===""||!isFinite(v)||v<0||v>40||Math.floor(v)!==v){ $("m").innerHTML='<div class="msg bad">Escribe un entero entre 0 y 40. Una oferta de 0 es válida.</div>'; return; }
+      S.d.y2_pesos=v; log("Y2 = "+v); go(8); }; } },
+
+ 8:{ html:function(){ return '<h1>Resultado</h1>'+step(8,"regla de pago")+'<div id="res"></div><div class="actions"><button class="primary" id="next">Continuar</button></div>'; },
+  init:function(){
+    var fp=REV?$("forcep").value:"", p;
+    if(fp!==""&&Number(fp)>=0&&Number(fp)<=40&&Math.floor(Number(fp))===Number(fp)){ p=Number(fp); } else { p=Math.floor(Math.random()*41); }
+    var y2=S.d.y2_pesos, gets=(y2>=p), keep=gets?(40-p):40;
+    S.d.bdm_p=p; S.d.recibe_audio=gets?1:0; S.d.pesos_restantes=keep;
+    log("Precio p="+p+"; "+(gets?"compra el audio":"no compra el audio")+"; pesos restantes="+keep);
+    save("bdm");
+    $("res").innerHTML='<table><tr><th>Tu oferta</th><td>$'+y2+' MXN</td></tr><tr><th>Precio elegido por la computadora (p)</th><td>'+p+'</td></tr>'+
+      '<tr><th>Resultado</th><td>'+(gets?'Tu oferta es mayor o igual que el precio: <strong>compras el audio</strong> y pagas $'+p+' MXN.':'Tu oferta es menor que el precio: <strong>no compras el audio</strong> y conservas tus $40.')+'</td></tr>'+
+      '<tr><th>Pesos virtuales que te quedan</th><td><strong>'+keep+'</strong></td></tr></table>'+
+      (gets?'<p>Ya es tuyo: puedes descargarlo aquí.</p><div class="actions"><a class="primary" href="'+CONFIG.AUDIO_URL+'" download="'+CONFIG.AUDIO_DESCARGA+'">Descargar el audio</a></div>':'');
+    $("next").onclick=function(){ go(9); }; } },
+
+ 9:{ html:function(){ return ''+
+  '<h1>Una pregunta sobre la pieza</h1>'+step(9,"Y3")+
+  '<p><strong>¿Consideras que lo que acabas de escuchar es jazz?</strong></p>'+
+  '<label class="opt"><input type="radio" name="y3" value="1"> Sí</label><label class="opt"><input type="radio" name="y3" value="0"> No</label>'+
+  '<div id="m"></div><div class="actions"><button class="primary" id="next">Continuar</button></div>'; },
+  init:function(){ $("next").onclick=function(){ var r=document.querySelector('input[name="y3"]:checked');
+    if(!r){ $("m").innerHTML='<div class="msg bad">Esta respuesta es obligatoria para terminar.</div>'; return; }
+    S.d.y3_jazz=Number(r.value); log("Y3 = "+r.value); go(10); }; } },
+
+ 10:{ html:function(){ var o=''; for(var i=1;i<=7;i++){ o+='<label><input type="radio" name="y4" value="'+i+'">'+i+'</label>'; } return ''+
+  '<h1>Una última pregunta</h1>'+step(10,"Y4 (exploratoria)")+
+  '<p><strong>¿Qué tan improvisada crees que fue esta pieza?</strong></p>'+
+  '<div class="scale">'+o+'</div><div class="muted">1 = nada improvisada, 7 = totalmente improvisada</div>'+
+  '<div id="m"></div><div class="actions"><button class="primary" id="next">Finalizar</button></div>'; },
+  init:function(){ $("next").onclick=function(){ var r=document.querySelector('input[name="y4"]:checked');
+    if(!r){ $("m").innerHTML='<div class="msg bad">Elige un valor del 1 al 7.</div>'; return; }
+    S.d.y4_improv=Number(r.value); S.d.completo=1; log("Y4 = "+r.value+"; sesión completa"); go(11); }; } },
+
+ 11:{ html:function(){ return ''+
+  '<h1>Gracias por participar</h1>'+step(11,"cierre")+
+  '<div id="saving" class="msg">Guardando tus respuestas...</div>'+
+  '<p>Gracias por tu tiempo. Ya puedes cerrar esta página.</p>'+
+  '<div class="solo-rev"><h2 style="font-size:1rem;margin-top:22px">Registro de esta sesión (solo modo revisión)</h2>'+
+  '<div class="muted">Condición: '+(S.treat==="T1"?"Tratamiento (T=1)":"Control (T=0)")+' · estrato '+esc(S.d.estrato||"-")+' · fuente '+esc(S.d.asignacion_fuente)+'</div>'+
+  '<pre id="csv"></pre><div class="actions"><button class="sec" id="copy">Copiar registro (CSV)</button><button class="sec" id="again">Nueva sesión</button></div></div>'; },
+  init:function(){
+    var box=$("saving");
+    function finalSave(){
+      box.className="msg"; box.textContent="Guardando tus respuestas...";
+      save("completo").then(function(ok){
+        if(ok){ box.className="msg good"; box.textContent="Tus respuestas quedaron guardadas."; store({subject_id:S.d.subject_id, completo:1}); }
+        else { box.className="msg bad"; box.innerHTML='No pudimos guardar tus respuestas. Revisa tu conexión y <button class="sec" id="retry">vuelve a intentar</button>. No cierres esta página.';
+               $("retry").onclick=finalSave; }
+      });
+    }
+    finalSave();
+    if(REV){
+      var keys=Object.keys(S.d), csv=keys.join(",")+"\n"+keys.map(function(k){ return csvCell(S.d[k]); }).join(",");
+      $("csv").textContent=csv;
+      $("copy").onclick=function(){ var ta=document.createElement("textarea"); ta.value=csv; document.body.appendChild(ta); ta.select();
+        try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta); };
+      $("again").onclick=restart;
+    } } }
+};
+
+// ---------- asignación ----------
+function assign(){
+  function done(treat, fuente, extra){
+    S.treat = treat===1?"T1":"T0"; S.d.treat=treat; S.d.asignacion_fuente=fuente;
+    if(extra){ S.d.estrato=extra.estrato||""; S.d.block_id=extra.block_id||""; }
+    log("Asignación: "+(treat===1?"T=1":"T=0")+" (fuente: "+fuente+(S.d.estrato?", estrato "+S.d.estrato+", bloque "+S.d.block_id:"")+")");
+  }
+  var c=REV?$("cond").value:"srv";
+  if(c==="T0"||c==="T1"){ done(c==="T1"?1:0,"forzada"); return save("asignado"); }
+  S.d.etapa="asignado";
+  return withRetry(function(){ return api("assign", S.d); }, 3)
+    .then(function(r){ done(Number(r.treat),"servidor",r); },
+          function(e){ // sin conexión con Sheets: se asigna al azar en el navegador y se marca
+            log("Sin respuesta del servidor ("+e.message+"); asignación local al azar");
+            done(Math.random()<0.5?1:0,"local"); return save("asignado"); });
+}
+
+function render(){
+  $("prog").textContent="Pantalla "+S.screen+" de "+TOTAL;
+  $("app").innerHTML=screens[S.screen].html();
+  screens[S.screen].init();
+}
+function restart(){ if(S){ clearTimer(); stopAudio(); } store(null); S=fresh(); $("log").textContent=""; render(); window.scrollTo(0,0); }
+
+$("srv").textContent = CONFIG.SCRIPT_URL ? "conectado a la URL configurada" : "SIN CONFIGURAR (falta SCRIPT_URL; los datos no se guardan)";
+$("restart").onclick=restart;
+// Antes de salir a mitad de la sesión, el navegador pide confirmación.
+window.addEventListener("beforeunload", function(e){ if(S && S.screen>1 && S.screen<11){ e.preventDefault(); e.returnValue=""; } });
+
+var prev=stored();
+if(!REV && prev && prev.completo){ S={screen:0, timer:null, logTxt:[], d:{subject_id:prev.subject_id}}; render(); }
+else { S=fresh(); render(); }
+})();
+</script>
+</body>
+</html>
