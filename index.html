@@ -39,8 +39,11 @@
   .msg.good{background:#e6f3ea;color:#14502b}
   .ficha{border:1px solid var(--line);border-left:5px solid var(--accent);background:#fbfbf9;padding:14px 16px;border-radius:6px;margin:10px 0}
   .ficha p{margin:6px 0}
-  .bar{height:12px;background:#e8e6de;border-radius:6px;overflow:hidden;margin:12px 0}
-  .bar>i{display:block;height:100%;width:0;background:var(--accent)}
+  .playing{display:flex;justify-content:center;align-items:flex-end;gap:5px;height:44px;margin:18px 0 10px}
+  .playing i{display:block;width:7px;height:10px;background:var(--accent);border-radius:2px;animation:eq 1s ease-in-out infinite}
+  .playing i:nth-child(2){animation-delay:.2s}.playing i:nth-child(3){animation-delay:.4s}.playing i:nth-child(4){animation-delay:.1s}.playing i:nth-child(5){animation-delay:.3s}
+  .playing.off i{animation:none;opacity:.35}
+  @keyframes eq{0%,100%{height:8px}50%{height:40px}}
   .big{font-size:2rem;font-variant-numeric:tabular-nums;text-align:center;margin:6px 0}
   .scale{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
   .scale label{display:flex;flex-direction:column;align-items:center;font-size:14px;cursor:pointer}
@@ -95,10 +98,10 @@
 var CONFIG = {
   // Pega aquí la URL de la aplicación web de Apps Script (termina en /exec):
   SCRIPT_URL: "https://script.google.com/macros/s/AKfycbzCQ_V5Nx-oCwmbfynmXfq9LkaGl4Wydj2x0gEiq85hqyFHtWFvdV4lKbtcnNnTz4GV/exec",
-  // Archivo de audio. Para cambiar la canción, reemplaza audio/solo.mp3 por el archivo final con el mismo nombre.
-  AUDIO_URL: "audio/solo.mp3",
+  // Archivo de audio (dentro de la carpeta audio). Para cambiar la canción, sube el archivo y escribe aquí su nombre.
+  AUDIO_URL: "audio/Liquid_Modernity_-_Anagnorisis.mp3",
   AUDIO_DESCARGA: "Liquid_Modernity_-_Anagnorisis.mp3",   // nombre con el que se descarga al comprar
-  DURACION_TXT: "1:55",             // duración que se muestra en la ficha (si cambias el audio, actualízala)
+  DURACION_SEG: 125,                // duración del audio en segundos (2:05); solo se usa si el navegador no la detecta
   LOCK_SEC: 30,                     // escucha obligatoria antes de poder saltar
   FICHA_SEC: 10                     // bloqueo de lectura de la ficha
 };
@@ -138,7 +141,7 @@ function log(m){ S.logTxt.push("["+("0"+S.screen).slice(-2)+"] "+m); $("log").te
 function clearTimer(){ if(S.timer){ clearInterval(S.timer); S.timer=null; } }
 function stopAudio(){ if(S.audio){ try{ S.audio.pause(); }catch(e){} } }
 function go(n){ clearTimer(); S.screen=n; render(); window.scrollTo(0,0); }
-function step(n, txt){ return '<div class="step">Paso '+n+' de '+TOTAL+(REV&&txt?' <span class="solo-rev">- '+txt+'</span>':'')+'</div>'; }
+function step(n, txt){ return REV ? '<div class="step">Pantalla '+n+' de '+TOTAL+(txt?' - '+txt:'')+'</div>' : ''; }
 
 // ---------- comunicación con Google Sheets ----------
 function api(action, data, ms){
@@ -175,6 +178,7 @@ var screens = {
   '<h1>Consentimiento</h1>'+step(1,"Anexo C")+
   '<p>Esta es una investigación académica del CIDE sobre cómo se valora la música. Participarás en una sesión web de unos 10 min: escucharás una pieza, harás un ejercicio de compra con pesos virtuales y contestarás algunas preguntas. <strong>Necesitarás audífonos o bocinas.</strong></p>'+
   '<p>Tu participación es voluntaria y puedes abandonar en cualquier momento. No recolectamos nombre ni correo; tus respuestas se guardan con un código anónimo. Los datos se usarán solo con fines de investigación y se publicarán de forma agregada.</p>'+
+  '<p>Contacto: <a href="mailto:leonardo.ortega@alumnos.cide.edu">leonardo.ortega@alumnos.cide.edu</a></p>'+
   '<label class="opt"><input type="checkbox" id="acepto"> Entiendo lo anterior y acepto participar.</label>'+
   '<div class="actions"><button class="primary" id="next" disabled>Continuar</button></div>'; },
   init:function(){ var c=$("acepto"), b=$("next"); c.onchange=function(){ b.disabled=!c.checked; };
@@ -206,7 +210,7 @@ var screens = {
  3:{ html:function(){ var f=FICHA[S.treat]; return ''+
   '<h1>Ficha de la pieza</h1>'+step(3,'bloqueo de lectura de '+CONFIG.FICHA_SEC+' s - condición <span class="tag">'+(S.treat==="T1"?"Tratamiento T=1":"Control T=0")+'</span>')+
   '<p class="muted">Tienes $40 MXN virtuales que usarás más adelante. Lee la ficha de la pieza.</p>'+
-  '<div class="ficha"><p>'+f+'</p><p class="muted"><strong>Duración:</strong> '+CONFIG.DURACION_TXT+'</p></div>'+
+  '<div class="ficha"><p>'+f+'</p></div>'+
   '<p class="muted">Sube el volumen. Una vez que empiece, el audio no se puede pausar.</p>'+
   '<div id="t" class="muted">Podrás continuar en '+CONFIG.FICHA_SEC+' s.</div>'+
   '<div class="actions"><button class="primary" id="next" disabled>Iniciar reproducción</button></div>'; },
@@ -223,12 +227,13 @@ var screens = {
 
  4:{ html:function(){ return ''+
   '<h1>Reproducción</h1>'+step(4,"escucha obligatoria de "+CONFIG.LOCK_SEC+" s; luego aparece Saltar; Y1 = segundos escuchados")+
-  '<div class="big" id="clock">0:00 / '+CONFIG.DURACION_TXT+'</div><div class="bar"><i id="fill"></i></div>'+
-  '<div id="t" class="muted">Cargando audio...</div>'+
-  '<div class="actions"><button class="primary" id="play" style="display:none">Reproducir</button><button class="sec" id="skip" disabled>Saltar</button></div>'; },
+  '<div class="playing" id="eq" aria-label="Reproduciendo"><i></i><i></i><i></i><i></i><i></i></div>'+
+  '<div class="solo-rev muted" id="clock" style="text-align:center"></div>'+
+  '<div id="t" class="muted" style="text-align:center">Cargando audio...</div>'+
+  '<div class="actions" style="justify-content:center"><button class="primary" id="play" style="display:none">Reproducir</button><button class="sec" id="skip" disabled>Saltar</button></div>'; },
   init:function(){
     var a=S.audio, skip=$("skip"), play=$("play"), done=false;
-    function dur(){ return (a.duration&&isFinite(a.duration))?a.duration:115; }
+    function dur(){ return (a.duration&&isFinite(a.duration))?a.duration:CONFIG.DURACION_SEG; }
     function finish(y){ if(done) return; done=true; clearTimer(); a.pause();
       S.d.y1_seg=Math.round(y); log("Y1 = "+S.d.y1_seg+" s"); save("escucha"); go(5); }
     function showPlay(msg){ play.style.display="inline-block"; $("t").textContent=msg; }
@@ -241,7 +246,8 @@ var screens = {
     a.onplaying=function(){ play.style.display="none"; };
     S.timer=setInterval(function(){
       var v=a.currentTime||0, D=dur();
-      $("clock").textContent=mmss(v)+" / "+mmss(Math.round(D)); $("fill").style.width=(100*v/D)+"%";
+      if(REV) $("clock").textContent="(revisión) "+mmss(v)+" / "+mmss(Math.round(D));
+      $("eq").className = (a.paused||play.style.display!=="none") ? "playing off" : "playing";
       if(play.style.display!=="none") return;
       if(v>=CONFIG.LOCK_SEC){ skip.disabled=false; $("t").textContent="Puedes saltar la pista cuando quieras."; }
       else if(v>0){ $("t").textContent="Saltar estará disponible en "+Math.ceil(CONFIG.LOCK_SEC-v)+" s."; }
@@ -313,9 +319,9 @@ var screens = {
     $("next").onclick=function(){ go(9); }; } },
 
  9:{ html:function(){ return ''+
-  '<h1>Una pregunta sobre la pieza</h1>'+step(9,"Y3")+
+  '<h1>Una pregunta sobre la pieza</h1>'+step(9,"Y3: 1 = sí, 0 = no, 9 = no sé")+
   '<p><strong>¿Consideras que lo que acabas de escuchar es jazz?</strong></p>'+
-  '<label class="opt"><input type="radio" name="y3" value="1"> Sí</label><label class="opt"><input type="radio" name="y3" value="0"> No</label>'+
+  '<label class="opt"><input type="radio" name="y3" value="1"> Sí</label><label class="opt"><input type="radio" name="y3" value="0"> No</label><label class="opt"><input type="radio" name="y3" value="9"> No sé</label>'+
   '<div id="m"></div><div class="actions"><button class="primary" id="next">Continuar</button></div>'; },
   init:function(){ $("next").onclick=function(){ var r=document.querySelector('input[name="y3"]:checked');
     if(!r){ $("m").innerHTML='<div class="msg bad">Esta respuesta es obligatoria para terminar.</div>'; return; }
