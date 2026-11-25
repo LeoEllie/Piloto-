@@ -102,7 +102,7 @@ var CONFIG = {
   AUDIO_URL: "audio/Liquid_Modernity_-_Anagnorisis.mp3",
   AUDIO_DESCARGA: "Liquid_Modernity_-_Anagnorisis.mp3",   // nombre con el que se descarga al comprar
   DURACION_SEG: 125,                // duración del audio en segundos (2:05); solo se usa si el navegador no la detecta
-  LOCK_SEC: 30,                     // escucha obligatoria antes de poder saltar
+  LOCK_SEC: 35,                     // escucha obligatoria antes de poder saltar (sin aviso: solo se activa el botón)
   FICHA_SEC: 10                     // bloqueo de lectura de la ficha
 };
 // =========================================================
@@ -226,7 +226,7 @@ var screens = {
       go(4); }; } },
 
  4:{ html:function(){ return ''+
-  '<h1>Reproducción</h1>'+step(4,"escucha obligatoria de "+CONFIG.LOCK_SEC+" s; luego aparece Saltar; Y1 = segundos escuchados")+
+  '<h1>Reproducción</h1>'+step(4,"escucha obligatoria de "+CONFIG.LOCK_SEC+" s; luego se activa Saltar sin aviso; Y1 = segundos escuchados")+
   '<div class="playing" id="eq" aria-label="Reproduciendo"><i></i><i></i><i></i><i></i><i></i></div>'+
   '<div class="solo-rev muted" id="clock" style="text-align:center"></div>'+
   '<div id="t" class="muted" style="text-align:center">Cargando audio...</div>'+
@@ -249,8 +249,8 @@ var screens = {
       if(REV) $("clock").textContent="(revisión) "+mmss(v)+" / "+mmss(Math.round(D));
       $("eq").className = (a.paused||play.style.display!=="none") ? "playing off" : "playing";
       if(play.style.display!=="none") return;
-      if(v>=CONFIG.LOCK_SEC){ skip.disabled=false; $("t").textContent="Puedes saltar la pista cuando quieras."; }
-      else if(v>0){ $("t").textContent="Saltar estará disponible en "+Math.ceil(CONFIG.LOCK_SEC-v)+" s."; }
+      if(v>0) $("t").textContent="";
+      if(v>=CONFIG.LOCK_SEC && skip.disabled){ skip.disabled=false; log("Saltar habilitado a los "+CONFIG.LOCK_SEC+" s"); }
     },200);
     skip.onclick=function(){ finish(Math.max(CONFIG.LOCK_SEC,a.currentTime)); }; } },
 
